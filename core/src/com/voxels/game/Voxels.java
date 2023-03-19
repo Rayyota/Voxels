@@ -2,57 +2,34 @@ package com.voxels.game;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.*;
-import com.badlogic.gdx.graphics.VertexAttributes.Usage;
 import com.badlogic.gdx.graphics.g3d.utils.FirstPersonCameraController;
-import com.badlogic.gdx.graphics.g3d.utils.MeshBuilder;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
-import com.badlogic.gdx.math.MathUtils;
-import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
-
-import java.util.ArrayList;
-import java.util.List;
+import com.badlogic.gdx.graphics.Color;
 
 public class Voxels extends ApplicationAdapter {
-    private List<Cube> cubes;
+    private Cube[][][] matrixCubes;
     private ShaderProgram shader;
     private Camera camera;
     private FirstPersonCameraController controller;
     private Vector3 lightDirection;
-    private Matrix4 translationMatrix;
+    float cubeSize = 2f; // чтобы не было расстояний между кубами
+    private Scene scene;
 
     @Override
     public void create() {
         super.create();
-        translationMatrix = new Matrix4();
 
-        MeshBuilder meshBuilder = new MeshBuilder();
-        VertexAttributes vertexAttributes = new VertexAttributes(
-                new VertexAttribute(Usage.Position, 3, "a_Position"),
-                new VertexAttribute(Usage.Normal, 3, "a_Normal"));
-        meshBuilder.begin(vertexAttributes, GL20.GL_TRIANGLES);
-        meshBuilder.box(4f, 4f, 4f);
-        Mesh mesh = meshBuilder.end();
+        scene = new Scene();
+        matrixCubes = scene.getMatrixCubes();
 
-        cubes = new ArrayList<>();
-        Cube cube = new Cube(mesh);
-        Cube cube1 = new Cube(mesh);
-        cubes.add(cube);
-        cubes.add(cube1);
-        cube.setPosition(0f, 0f, 0f);
-        cube1.setPosition(-5f, 0f, -5f);
-//        for (int i = 0; i < 10; i++) {
-//            Cube cube1 = new Cube(mesh);
-//            cube1.setPosition(-MathUtils.random(30f), 0f, -MathUtils.random(30f));
-//            cubes.add(cube1);
-//        }
-
-        camera = new PerspectiveCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-        camera.position.set(10f, 10f, 10f);
-        camera.lookAt(0f, 0f, 0f);
-        camera.near = 1f;
-        camera.far = 30f;
+        camera = new PerspectiveCamera(90, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        camera.position.set(3f, 3f, 3f);
+        camera.lookAt(0, 2f, 0);
+        camera.near = 0.1f;
+        camera.far = 100f;
         camera.update();
 
         shader = new ShaderProgram(Gdx.files.internal("shaders/vertexShader.glsl").readString(),
@@ -73,20 +50,34 @@ public class Voxels extends ApplicationAdapter {
         Gdx.gl20.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         Gdx.gl20.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 
-        Gdx.gl20.glClearColor(128f / 255f, 1f / 255f, 83f / 255f, 1f);
+        // прозрачность
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+        Gdx.gl20.glClearColor(127f / 255f, 233f / 255f, 235f / 255f, 1f);
 
         camera.update(true);
         controller.update(Gdx.graphics.getDeltaTime());
 
+        if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            Vector3 position = new Vector3();
+            Color color = new Color(20f / 255f, 166f / 255f, 39f / 255f, 1f);
+            camera.unproject(position.set(Gdx.input.getX(), Gdx.input.getY(), 0));
+            int x = (int) (position.x / cubeSize);
+            int y = (int) (position.y / cubeSize);
+            int z = (int) (position.z / cubeSize);
+            if (x >= 0 && x < matrixCubes.length && y >= 0 && y < matrixCubes[0].length && z >= 0 && z < matrixCubes[0][0].length) {
+                Cube cube = matrixCubes[x][y][z];
+                cube.setColor(color);
+            }
+        }
+
         shader.begin();
+
         shader.setUniformMatrix("viewProjection", camera.combined);
         shader.setUniformf("lightDirection", lightDirection);
 
-        for (Cube c : cubes) {
-            translationMatrix.setToTranslation(c.getPosition());
-            shader.setUniformMatrix("model", translationMatrix);
-            c.getMesh().render(shader, GL20.GL_TRIANGLES);
-        }
+        scene.render();
 
         shader.end();
     }

@@ -1,13 +1,11 @@
-#version 300 es
-
 #ifdef GL_ES
 precision mediump float;
 #endif
 
-in vec3 varColor;
+uniform vec4 color;
 
-out vec4 outColor;
+varying vec3 varColor;
 
 void main() {
-    outColor = vec4(varColor, 1.0);
+    gl_FragColor = vec4(varColor * color.rgb, color.a);
 }
